@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using System.IO;
 
@@ -21,9 +22,11 @@ namespace PSParquet
         [ValidateRange(1, int.MaxValue)]
         public int FirstNGroups { get; set; } = 0;
 
+        private readonly List<FileInfo> filesToProcess = new();
+
         protected override void BeginProcessing()
         {
-            // Pipeline values aren't available yet, validation happens in ProcessRecord
+            filesToProcess.Clear();
         }
 
         protected override void ProcessRecord()
@@ -48,39 +51,38 @@ namespace PSParquet
                 return;
             }
             
-            WriteVerbose($"Importing from: {FilePath.FullName}");
+            WriteVerbose($"Queued file for import: {FilePath.FullName}");
+            filesToProcess.Add(FilePath);
         }
 
 
         protected override void EndProcessing()
         {
-            if (FilePath == null || !FilePath.Exists)
+            foreach (var file in filesToProcess)
             {
-                return;
-            }
-            
-            try
-            {
-                var objs = PSParquet.GetParquetObjects(FilePath.FullName, FirstNGroups).GetAwaiter().GetResult();
-                
-                if (objs.Count == 0)
+                try
                 {
-                    WriteVerbose("No objects found in Parquet file.");
+                    var objs = PSParquet.GetParquetObjects(file.FullName, FirstNGroups).GetAwaiter().GetResult();
+                    
+                    if (objs.Count == 0)
+                    {
+                        WriteVerbose($"No objects found in Parquet file: {file.FullName}");
+                    }
+                    else
+                    {
+                        WriteVerbose($"Imported {objs.Count} object(s) from {file.FullName}");
+                    }
+                    
+                    objs.ForEach(obj => WriteObject(obj));
                 }
-                else
+                catch (System.Exception ex)
                 {
-                    WriteVerbose($"Imported {objs.Count} object(s) from {FilePath.FullName}");
+                    WriteError(new ErrorRecord(
+                        ex,
+                        "ImportFailed",
+                        ErrorCategory.ReadError,
+                        file));
                 }
-                
-                objs.ForEach(obj => WriteObject(obj));
-            }
-            catch (System.Exception ex)
-            {
-                WriteError(new ErrorRecord(
-                    ex,
-                    "ImportFailed",
-                    ErrorCategory.ReadError,
-                    FilePath));
             }
         }
     }

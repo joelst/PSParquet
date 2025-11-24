@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using System.IO;
 
@@ -17,9 +18,11 @@ namespace PSParquet
         [Alias("FullName")]
         public FileInfo FilePath { get; set; }
 
+        private readonly List<FileInfo> filesToInspect = new();
+
         protected override void BeginProcessing()
         {
-            // Pipeline values aren't available yet, validation happens in ProcessRecord
+            filesToInspect.Clear();
         }
 
         protected override void ProcessRecord()
@@ -44,24 +47,29 @@ namespace PSParquet
                 return;
             }
             
-            try
-            {
-                WriteVerbose($"Reading file info: {FilePath.FullName}");
-                var fileInfo = PSParquet.GetParquetFileInfo(FilePath.FullName).GetAwaiter().GetResult();
-                WriteObject(fileInfo);
-            }
-            catch (System.Exception ex)
-            {
-                WriteError(new ErrorRecord(
-                    ex,
-                    "GetFileInfoFailed",
-                    ErrorCategory.ReadError,
-                    FilePath));
-            }
+            WriteVerbose($"Queued file for info retrieval: {FilePath.FullName}");
+            filesToInspect.Add(FilePath);
         }
+
         protected override void EndProcessing()
         {
-
+            foreach (var file in filesToInspect)
+            {
+                try
+                {
+                    WriteVerbose($"Reading file info: {file.FullName}");
+                    var fileInfo = PSParquet.GetParquetFileInfo(file.FullName).GetAwaiter().GetResult();
+                    WriteObject(fileInfo);
+                }
+                catch (System.Exception ex)
+                {
+                    WriteError(new ErrorRecord(
+                        ex,
+                        "GetFileInfoFailed",
+                        ErrorCategory.ReadError,
+                        file));
+                }
+            }
         }
     }
 }

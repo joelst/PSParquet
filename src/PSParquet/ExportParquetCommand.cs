@@ -19,6 +19,7 @@ namespace PSParquet
         Position = 1,
         ValueFromPipeline = true,
         ValueFromPipelineByPropertyName = false)]
+        [AllowEmptyCollection]
         public PSObject[] InputObject { get; set; }
         [Parameter(
         Mandatory = false,
@@ -32,6 +33,18 @@ namespace PSParquet
         ValueFromPipeline = false,
         ValueFromPipelineByPropertyName = false)]
         public SwitchParameter Force { get; set; }
+        [Parameter(
+        Mandatory = false,
+        ValueFromPipeline = false,
+        ValueFromPipelineByPropertyName = false)]
+        [ValidateSet("None", "Gzip", "Snappy", "Lzo", "Brotli", "Zstd")]
+        public string CompressionMethod { get; set; } = "Gzip";
+        [Parameter(
+        Mandatory = false,
+        ValueFromPipeline = false,
+        ValueFromPipelineByPropertyName = false)]
+        [ValidateSet("Optimal", "Fastest", "NoCompression", "SmallestSize")]
+        public string CompressionLevel { get; set; } = "Optimal";
 
         private readonly List<PSObject> inputObjects = new List<PSObject>();
 
@@ -39,46 +52,66 @@ namespace PSParquet
         protected override void BeginProcessing()
         {
             WriteVerbose("Using: " + FilePath.FullName);
-            if (FilePath.Exists && !Force)
-            {
-                Force = ShouldContinue(FilePath.FullName, "Overwrite the existing file?");
-            }
-            if (Force)
-            {
-                WriteVerbose($"Deleting: {FilePath}");
-                FilePath.Delete();
-            }
         }
 
         protected override void ProcessRecord()
         {
-            if (!FilePath.Exists || Force)
+            WriteDebug("Adding to List");
+            if (InputObject != null && InputObject.Length > 0)
             {
-                WriteDebug("Adding to List");
                 inputObjects.AddRange(InputObject);
             }
         }
 
         protected override void EndProcessing()
         {
-            if (!FilePath.Exists || Force)
+            if (inputObjects.Count == 0)
             {
-                var collectedObjects = inputObjects.ToArray();
-                WriteVerbose($"Writing {collectedObjects.Length} objects to {FilePath.FullName}");
-                bool result = PSParquet.WriteParquetFile(collectedObjects, FilePath.FullName).Result;
-                if (!result)
-                {
-                    WriteWarning("InputObjects contains unsupported values. Transform the data prior to running Export-Parquet.");
-                }
-                else
-                {
-                    WriteVerbose($"InputObject has been exported to {FilePath}");
-                }
+                WriteWarning("No objects to export.");
+                return;
+            }
 
-                if (PassThru)
+            bool fileExists = FilePath.Exists;
+
+            if (fileExists && !Force)
+            {
+                if (!ShouldContinue(FilePath.FullName, "Overwrite the existing file?"))
                 {
-                    WriteObject(collectedObjects);
+                    WriteVerbose("Export cancelled by user.");
+                    return;
                 }
+            }
+
+            string operation = fileExists ? "Overwrite Parquet file" : "Create Parquet file";
+            if (!ShouldProcess(FilePath.FullName, operation))
+            {
+                WriteVerbose("Operation skipped (WhatIf/Confirm).");
+                return;
+            }
+
+            if (fileExists)
+            {
+                WriteVerbose($"Deleting: {FilePath}");
+                FilePath.Delete();
+            }
+
+            var collectedObjects = inputObjects.ToArray();
+            
+            WriteVerbose($"Writing {collectedObjects.Length} objects to {FilePath.FullName}");
+            var result = PSParquet.WriteParquetFile(collectedObjects, FilePath.FullName, CompressionMethod, CompressionLevel, this);
+            if (!result.Result)
+            {
+                // Error already written by WriteParquetFile
+                return;
+            }
+            else
+            {
+                WriteVerbose($"InputObject has been exported to {FilePath}");
+            }
+
+            if (PassThru)
+            {
+                WriteObject(collectedObjects);
             }
         }
     }

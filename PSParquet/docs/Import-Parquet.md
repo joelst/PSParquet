@@ -81,7 +81,7 @@ Path to the Parquet file
 ```yaml
 Type: FileInfo
 Parameter Sets: (All)
-Aliases:
+Aliases: FullName
 
 Required: True
 Position: 0

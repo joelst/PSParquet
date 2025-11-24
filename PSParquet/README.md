@@ -1,5 +1,15 @@
 # Versions
 
+0.3.0
+* Null value support - properly preserves null values instead of converting to defaults
+* DateTime type detection - automatically detects and properly types DateTime values
+* Configurable compression - added CompressionMethod and CompressionLevel parameters
+* Enhanced type support - added Boolean and Guid type handling
+* Improved error handling - proper PowerShell error records instead of console output
+* Input validation - validates empty arrays and missing properties
+
+# 
+
 0.2.17
 * Get-ParquetFileInfo added
 

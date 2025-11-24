@@ -36,7 +36,7 @@ PS C:\> {{ Add example code here }}
 ```yaml
 Type: FileInfo
 Parameter Sets: (All)
-Aliases:
+Aliases: FullName
 
 Required: True
 Position: 0

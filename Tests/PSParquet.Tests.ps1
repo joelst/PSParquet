@@ -32,8 +32,9 @@ Describe "Module tests" {
     it "IntWithNull is a double" {
         ($Content[2].IntWithNull -is [double]) | Should -Be $true
     }
-    it "IntWithNull has 0" {
-        ($Content.IntWithNull -contains 0) | Should -Be $true
+    it "IntWithNull has null values" {
+        # With the fix, null values are now properly preserved
+        ($Content.IntWithNull -contains $null) | Should -Be $true
     }
     it "TypedInt is an Int" {
         ($Content[0].TypedInt -is [Int32]) | Should -Be $true

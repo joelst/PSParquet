@@ -8,12 +8,17 @@
    
 This PowerShell module is a free and open source tool that allows you to easily import and export data to and from Parquet files directly from the command line.
 
-
 It's built on the [Parquet.Net library](https://github.com/aloneguid/parquet-dotnet) developed by https://github.com/aloneguid
    
 ## Advantages of Using this Module  
    
 - **Efficient Storage:** Parquet is a columnar storage format that is highly optimized for performance and space efficiency. This module makes it easy to store and retrieve very large datasets efficiently.  
+
+- **Null Value Support:** Properly handles null values in your data, preserving them instead of converting to default values.
+
+- **Smart Type Detection:** Automatically detects data types including DateTime, Boolean, Guid, and numeric types for accurate data representation.
+
+- **Configurable Compression:** Choose from multiple compression algorithms (Gzip, Snappy, Brotli, Zstd, Lzo) and compression levels to optimize for speed or file size.
    
 - **Open Source and Free:** The module is free and open source, making it accessible to everyone and giving users the ability to contribute and improve the code.  
    
@@ -34,16 +39,70 @@ Once installed, you can use the `Import-Parquet` and `Export-Parquet` cmdlets to
 For example, to import data from a Parquet file:  
    
 ```powershell  
-Import-Parquet -Path "path/to/file.parquet"  
+Import-Parquet -FilePath "path/to/file.parquet"  
 ```  
    
 And to export data to a Parquet file:  
    
 ```powershell  
-Export-Parquet -InputObject $data -Path "path/to/file.parquet"  
+Export-Parquet -InputObject $data -FilePath "path/to/file.parquet"  
 ```
 
-Use the `Get-Help` cmdlet for more help.
+### Advanced Export Options
+
+Export with custom compression settings:
+
+```powershell
+# Use Snappy compression for faster writes
+Export-Parquet -InputObject $data -FilePath "data.parquet" -CompressionMethod Snappy
+
+# Use maximum compression
+Export-Parquet -InputObject $data -FilePath "data.parquet" -CompressionLevel SmallestSize
+
+# Disable compression for maximum speed
+Export-Parquet -InputObject $data -FilePath "data.parquet" -CompressionMethod None
+```
+
+Available compression methods: `None`, `Gzip` (default), `Snappy`, `Brotli`, `Zstd`, `Lzo`  
+Available compression levels: `Optimal` (default), `Fastest`, `NoCompression`, `SmallestSize`
+
+### Handling Null Values and Data Types
+
+The module now handles null values and automatically detects data types:
+
+```powershell
+$data = 1..100 | ForEach-Object {
+    [PSCustomObject]@{
+        Date        = Get-Date
+        Name        = "Item $_"
+        Value       = if ($_ % 3 -eq 0) { $null } else { $_ }  # Nulls preserved
+        IsActive    = ($_ % 2 -eq 0)  # Boolean type detected
+        Id          = [Guid]::NewGuid()  # Guid type supported
+    }
+}
+
+Export-Parquet -InputObject $data -FilePath "data.parquet"
+$imported = Import-Parquet -FilePath "data.parquet"
+# Null values and types are preserved correctly
+```
+
+### Get File Information
+
+Inspect Parquet file metadata and schema:
+
+```powershell
+$info = Get-ParquetFileInfo -FilePath "data.parquet"
+$info.RowGroupCount
+$info.Schema | Format-Table Name, Type
+```
+
+Use the `Get-Help` cmdlet for more details:
+
+```powershell
+Get-Help Export-Parquet -Full
+Get-Help Import-Parquet -Full
+Get-Help Get-ParquetFileInfo -Full
+```
    
 ## Contributions  
    

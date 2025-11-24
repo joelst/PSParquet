@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds PSParquet module and creates a module package for local installation. It includes the vesion number unlike the Azure Automation package.
+    Builds PSParquet module and creates a module package for local installation. It includes the version number unlike the Azure Automation package.
 .DESCRIPTION
     This script builds the PSParquet module using psake and creates a .zip package
     that can be installed locally as a PowerShell module.

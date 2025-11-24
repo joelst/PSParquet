@@ -87,13 +87,13 @@ namespace PSParquet
                 // If types differ and one is Int32, promote to Double
                 else if (detectedType != valueType)
                 {
-                    if ((detectedType == typeof(int) || detectedType == typeof(Int32)) && 
-                        (valueType == typeof(double) || valueType == typeof(Double)))
+                    if ((detectedType == typeof(int)) && 
+                        (valueType == typeof(double)))
                     {
                         detectedType = typeof(double);
                     }
                     else if ((valueType == typeof(int) || valueType == typeof(Int32)) && 
-                             (detectedType == typeof(double) || detectedType == typeof(Double)))
+                             (detectedType == typeof(double)))
                     {
                         // Keep double
                     }
@@ -191,20 +191,23 @@ namespace PSParquet
                 return null;
             }
 
+            // Support nullable value types by working against the underlying type
+            Type effectiveType = Nullable.GetUnderlyingType(type) ?? type;
+
             // For string types, preserve empty strings (don't convert to null)
-            if (type == typeof(string) && valueResult is string strValue)
+            if (effectiveType == typeof(string) && valueResult is string strValue)
             {
                 return strValue; // Return empty string as-is
             }
 
             // If value is already the correct type, return it
-            if (valueResult.GetType() == type)
+            if (valueResult.GetType() == effectiveType)
             {
                 return valueResult;
             }
 
             // Handle DateTime specifically
-            if (type == typeof(DateTime) || type == typeof(DateTime?))
+            if (effectiveType == typeof(DateTime))
             {
                 if (valueResult is DateTime)
                 {
@@ -217,7 +220,7 @@ namespace PSParquet
             }
 
             // Handle Boolean
-            if (type == typeof(bool) || type == typeof(Boolean))
+            if (effectiveType == typeof(bool))
             {
                 if (valueResult is bool)
                 {
@@ -230,7 +233,7 @@ namespace PSParquet
             }
 
             // Handle Guid
-            if (type == typeof(Guid))
+            if (effectiveType == typeof(Guid))
             {
                 if (valueResult is Guid)
                 {
@@ -245,12 +248,12 @@ namespace PSParquet
             // Try standard conversion
             try
             {
-                return Convert.ChangeType(valueResult, type);
+                return Convert.ChangeType(valueResult, effectiveType);
             }
             catch
             {
                 // If conversion fails, try ToString as last resort for string types
-                if (type == typeof(string))
+                if (effectiveType == typeof(string))
                 {
                     return valueResult.ToString();
                 }
@@ -353,7 +356,7 @@ namespace PSParquet
                                 }
                                 
                                 Array arr = Array.CreateInstance(arrayElementType, count);
-                                var data = rawData.Select(s => GetTypedValue(type, s)).ToArray();
+                                var data = rawData.Select(s => GetTypedValue(arrayElementType, s)).ToArray();
                                 Array.Copy(data, arr, parquetData[i].Data.Count());
                                 await groupWriter.WriteColumnAsync(new DataColumn(schema.DataFields[i], arr));
                             }

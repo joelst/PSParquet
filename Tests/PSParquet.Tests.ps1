@@ -26,11 +26,11 @@ Describe "Module tests" {
     it "Date is a DateTime" {
         ($Content[0].Date -is [DateTime]) | Should -Be $true
     }
-    it "Int32 is a double" {
-        ($Content[0].Int32 -is [double]) | Should -Be $true
+    it "Int32 remains Int32" {
+        ($Content[0].Int32 -is [int]) | Should -Be $true
     }
-    it "IntWithNull is a double" {
-        ($Content[2].IntWithNull -is [double]) | Should -Be $true
+    it "IntWithNull remains Int32" {
+        ($Content[1].IntWithNull -is [int]) | Should -Be $true
     }
     it "IntWithNull has null values" {
         # With the fix, null values are now properly preserved

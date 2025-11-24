@@ -425,5 +425,80 @@ Describe "Extended PSParquet Tests" {
             
             Remove-Item $tempFile -Force
         }
+
+        It "Schema exposes CLR type names for nullable columns" {
+            $tempFile = New-TemporaryFile
+            $testData = @(
+                [PSCustomObject]@{
+                    NullableInt  = $null
+                    NullableBool = $null
+                    GuidField    = [Guid]::NewGuid()
+                }
+                [PSCustomObject]@{
+                    NullableInt  = 7
+                    NullableBool = $true
+                    GuidField    = [Guid]::NewGuid()
+                }
+            )
+            
+            Export-Parquet -FilePath $tempFile.FullName -InputObject $testData -Force
+            $info = Get-ParquetFileInfo -FilePath $tempFile.FullName
+            
+            $nullableIntField = $info.Schema | Where-Object { $_.Name -eq "NullableInt" }
+            $nullableBoolField = $info.Schema | Where-Object { $_.Name -eq "NullableBool" }
+            $guidField = $info.Schema | Where-Object { $_.Name -eq "GuidField" }
+            
+            $nullableIntField.Type | Should -Be "System.Int32"
+            $nullableBoolField.Type | Should -Be "System.Boolean"
+            $guidField.Type | Should -Be "System.Guid"
+            $nullableIntField.PSTypeNames[0] | Should -Be "PSParquet.DataFieldInfo"
+            
+            Remove-Item $tempFile -Force
+        }
+
+        It "Schema diagnostics match runtime CLR types" {
+            $tempFile = New-TemporaryFile
+            $baseDate = Get-Date
+            $testData = @(
+                [PSCustomObject]@{
+                    IntValue      = 123
+                    NullableInt   = $null
+                    DoubleValue   = 12.34
+                    BoolValue     = $true
+                    DateValue     = $baseDate
+                    GuidValue     = [Guid]::NewGuid()
+                    TextValue     = "alpha"
+                }
+                [PSCustomObject]@{
+                    IntValue      = 456
+                    NullableInt   = 789
+                    DoubleValue   = 98.76
+                    BoolValue     = $false
+                    DateValue     = $baseDate.AddDays(1)
+                    GuidValue     = [Guid]::NewGuid()
+                    TextValue     = "beta"
+                }
+            )
+            
+            Export-Parquet -FilePath $tempFile.FullName -InputObject $testData -Force
+            $info = Get-ParquetFileInfo -FilePath $tempFile.FullName
+            $imported = Import-Parquet -FilePath $tempFile.FullName
+            
+            $schemaLookup = @{}
+            foreach ($field in $info.Schema)
+            {
+                $schemaLookup[$field.Name] = $field.Type
+            }
+            
+            $schemaLookup["IntValue"] | Should -Be $imported[0].IntValue.GetType().FullName
+            $schemaLookup["DoubleValue"] | Should -Be $imported[0].DoubleValue.GetType().FullName
+            $schemaLookup["BoolValue"] | Should -Be $imported[0].BoolValue.GetType().FullName
+            $schemaLookup["DateValue"] | Should -Be $imported[0].DateValue.GetType().FullName
+            $schemaLookup["GuidValue"] | Should -Be $imported[0].GuidValue.GetType().FullName
+            $schemaLookup["TextValue"] | Should -Be $imported[0].TextValue.GetType().FullName
+            $schemaLookup["NullableInt"] | Should -Be ((($imported | Where-Object { $_.NullableInt -ne $null }) | Select-Object -First 1).NullableInt.GetType().FullName)
+            
+            Remove-Item $tempFile -Force
+        }
     }
 }
